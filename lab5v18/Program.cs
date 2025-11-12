@@ -131,4 +131,5 @@ class Program
                 $"{(effectiveRate.HasValue ? effectiveRate.Value.ToString("0.####") : "-")}");
         }
     }
+    
 }
