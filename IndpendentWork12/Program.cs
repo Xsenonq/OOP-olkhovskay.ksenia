@@ -5,10 +5,11 @@ using System.Diagnostics;
 using System.Threading;
 using System.Collections.Concurrent;
 using System.Text;
+using System.Globalization; // Added for culture-invariant output
 
 class Program
 {
-    // Налаштування (можете змінювати для експериментів)
+    // Settings (You can modify these for experiments)
     static readonly int[] SizesToTest = new[] { 1000000, 3000000, 5000000 };
     static readonly int RandomSeed = 12345;
     static readonly int MaxRandomValue = 10000000;
@@ -16,7 +17,11 @@ class Program
 
     static void Main(string[] args)
     {
-        // Встановлення кодування UTF8 в коді (частина рішення)
+        // Set culture to InvariantCulture to ensure consistent decimal point (dot) output
+        // and correct number formatting regardless of OS settings.
+        Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+
+        // Set encoding to UTF8 (Partial solution; full fix requires console setting)
         Console.OutputEncoding = Encoding.UTF8;
         
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -25,30 +30,30 @@ class Program
         Console.WriteLine("=======================================================");
         Console.ResetColor();
 
-        // Збір результатів для фінальної таблиці
+        // Collect results for the final table
         var results = new List<(int Size, double LinqTime, double PlinqTime)>();
 
         // ----------------------------------------------------
-        // |                  4. ПОРІВНЯННЯ ПРОДУКТИВНОСТІ                    |
+        // |                  4. PERFORMANCE COMPARISON                     |
         // ----------------------------------------------------
         foreach (var n in SizesToTest)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"\n--- [Експеримент] Розмір колекції {n:N0} ---");
+            Console.WriteLine($"\n--- [Experiment] Collection Size {n:N0} ---");
             Console.ResetColor();
             
             var data = GenerateIntList(n, MaxRandomValue, RandomSeed);
 
-            // Прогріти JIT та адаптацію
-            Console.WriteLine("    [Warmup (JIT) in progress...]");
+            // Warm up JIT and adaptation
+            Console.WriteLine("[Warmup (JIT) in progress...]");
             for (int i = 0; i < WarmupRuns; i++)
             {
                 var _ = RunLinq(data).Take(10).ToArray(); 
                 var __ = RunPlinq(data).Take(10).ToArray();
             }
 
-            // Вимірювання
-            Console.WriteLine("    [Measuring performance...]");
+            // Measurement
+            Console.WriteLine("[Measuring performance...]");
             TimeSpan tLinq = MeasureElapsed(() => RunLinq(data).ToList());
             TimeSpan tPlinq = MeasureElapsed(() => RunPlinq(data).ToList());
             
@@ -58,61 +63,61 @@ class Program
             results.Add((n, linqSec, plinqSec));
 
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"    [LINQ Time]: {linqSec:F3} s");
-            Console.WriteLine($"    [PLINQ Time]: {plinqSec:F3} s");
+            Console.WriteLine($"[LINQ Time]: {linqSec:F3} s");
+            Console.WriteLine($"[PLINQ Time]: {plinqSec:F3} s");
             Console.ResetColor();
 
             if (plinqSec < linqSec)
             {
                 double speedup = linqSec / plinqSec;
-                Console.WriteLine($"    [Результат]: PLINQ швидший у {speedup:F2} разів.");
+                Console.WriteLine($"[Result]: PLINQ is faster by {speedup:F2} times.");
             }
             else
             {
-                 Console.WriteLine($"    [Результат]: LINQ виявився швидшим.");
+                 Console.WriteLine($"[Result]: LINQ proved to be faster.");
             }
         }
         
         Console.WriteLine();
-        PrintResultsTable(results); // Виведення зведеної таблиці
+        PrintResultsTable(results); // Output summary table
         Console.WriteLine("\n" + new string('=', 70));
 
         // ----------------------------------------------------
-        // |                5. ДОСЛІДЖЕННЯ БЕЗПЕКИ (ПОБІЧНІ ЕФЕКТИ)           |
+        // |              5. SAFETY INVESTIGATION (SIDE EFFECTS)             |
         // ----------------------------------------------------
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine("\n--- Демонстрація побічних ефектів у PLINQ (Safety Investigation) ---");
+        Console.WriteLine("\n--- PLINQ Side Effects Demonstration (Safety Investigation) ---");
         Console.WriteLine(new string('-', 70));
         Console.ResetColor();
         
         var smallData = GenerateIntList(1000000, 1000, RandomSeed + 1);
 
-        Console.WriteLine("\n[1] Небезпечний приклад (Race Condition)");
+        Console.WriteLine("\n[1] Unsafe Example (Race Condition)");
         UnsafePlinqSideEffect(smallData);
 
-        Console.WriteLine("\n[2] Виправлення №1: Interlocked (Атомарна операція)");
+        Console.WriteLine("\n[2] Fix #1: Interlocked (Atomic Operation)");
         FixedWithInterlocked(smallData);
 
-        Console.WriteLine("\n[3] Виправлення №2: Concurrent Collection");
+        Console.WriteLine("\n[3] Fix #2: Concurrent Collection");
         FixedWithConcurrentCollection(smallData);
 
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("\n=======================================================");
-        Console.WriteLine("|| Програму завершено. Аналіз даних у таблиці. ||");
+        Console.WriteLine("|| Program finished. Data analysis is in the table. ||");
         Console.WriteLine("=======================================================");
         Console.ResetColor();
     }
 
     /// <summary>
-    /// Виводить результати вимірювань у форматі консольної таблиці.
+    /// Outputs measurement results in a console table format.
     /// </summary>
     static void PrintResultsTable(List<(int Size, double LinqTime, double PlinqTime)> results)
     {
         Console.ForegroundColor = ConsoleColor.Blue;
-        Console.WriteLine("--- Зведена таблиця результатів продуктивності (Heavy Computation) ---");
+        Console.WriteLine("--- Summary Table of Performance Results (Heavy Computation) ---");
         Console.ResetColor();
 
-        // Заголовки з вирівнюванням
+        // Headers with alignment
         Console.WriteLine($"{"Size (N)",-15} | {"LINQ Time (s)",-15} | {"PLINQ Time (s)",-15} | {"Speedup (x)",-10}");
         Console.WriteLine(new string('-', 70));
 
@@ -121,16 +126,14 @@ class Program
             double speedup = res.LinqTime / res.PlinqTime;
             string arrow = speedup > 1.0 ? ">>" : "<<"; 
 
-            // КОРЕКТНЕ ФОРМАТУВАННЯ: Значення, вирівняне на 15 позицій
+            // Correct Formatting: value, formatted to 15 positions left-aligned
             Console.WriteLine(
                 $"{res.Size:N0,-15} | {res.LinqTime:F3,-15} | {res.PlinqTime:F3,-15} | {speedup:F2}x {arrow,-7}"
             );
         }
     }
-
-
     // ----------------------------------------------------
-    // |                  ДОПОМІЖНІ ФУНКЦІЇ                 |
+    // |                  HELPER FUNCTIONS                  |
     // ----------------------------------------------------
 
     static List<int> GenerateIntList(int count, int maxValueExclusive, int seed)
@@ -197,9 +200,9 @@ class Program
         });
 
         long expected = source.Count(x => x % 2 == 0);
-        Console.WriteLine($"    Очікуване (count парних): {expected}");
-        Console.WriteLine($"    Отримано (без синхронізації): {sharedCounter} [НЕКОРЕКТНО]");
-        Console.WriteLine("    *Коментар: Отримане значення є некоректним через Race Condition.*");
+        Console.WriteLine($"Expected (even count): {expected}");
+        Console.WriteLine($"Received (no sync): {sharedCounter} [INCORRECT]");
+        Console.WriteLine("*Comment: The received value is incorrect due to a Race Condition.*");
     }
 
     static void FixedWithInterlocked(IEnumerable<int> source)
@@ -214,8 +217,8 @@ class Program
         });
 
         long expected = source.Count(x => x % 2 == 0);
-        Console.WriteLine($"    Очікуване: {expected}");
-        Console.WriteLine($"    Отримано (Interlocked): {safeCounter} [КОРЕКТНО]");
+        Console.WriteLine($"Expected: {expected}");
+        Console.WriteLine($"Received (Interlocked): {safeCounter} [CORRECT]");
     }
 
     static void FixedWithConcurrentCollection(IEnumerable<int> source)
@@ -228,10 +231,9 @@ class Program
                 bag.Add(1);
             }
         });
-
         int result = bag.Count;
         int expected = source.Count(x => x % 2 == 0);
-        Console.WriteLine($"    Очікуване: {expected}");
-        Console.WriteLine($"    Отримано (ConcurrentBag): {result} [КОРЕКТНО]");
+        Console.WriteLine($"Expected: {expected}");
+        Console.WriteLine($"Received (ConcurrentBag): {result} [CORRECT]");
     }
 }
