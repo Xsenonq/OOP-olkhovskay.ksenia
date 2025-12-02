@@ -17,25 +17,18 @@ class Program
 
     static void Main(string[] args)
     {
-        // Set culture to InvariantCulture to ensure consistent decimal point (dot) output
-        // and correct number formatting regardless of OS settings.
         Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
 
-        // Set encoding to UTF8 (Partial solution; full fix requires console setting)
+       
         Console.OutputEncoding = Encoding.UTF8;
         
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("\n=======================================================");
-        Console.WriteLine("|| IndependentWork12: PLINQ vs LINQ Performance Analysis ||");
-        Console.WriteLine("=======================================================");
+        Console.WriteLine("IndependentWork12: PLINQ vs LINQ Performance Analysis ");
         Console.ResetColor();
 
-        // Collect results for the final table
+
         var results = new List<(int Size, double LinqTime, double PlinqTime)>();
 
-        // ----------------------------------------------------
-        // |                  4. PERFORMANCE COMPARISON                     |
-        // ----------------------------------------------------
         foreach (var n in SizesToTest)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -43,16 +36,12 @@ class Program
             Console.ResetColor();
             
             var data = GenerateIntList(n, MaxRandomValue, RandomSeed);
-
-            // Warm up JIT and adaptation
             Console.WriteLine("[Warmup (JIT) in progress...]");
             for (int i = 0; i < WarmupRuns; i++)
             {
                 var _ = RunLinq(data).Take(10).ToArray(); 
                 var __ = RunPlinq(data).Take(10).ToArray();
             }
-
-            // Measurement
             Console.WriteLine("[Measuring performance...]");
             TimeSpan tLinq = MeasureElapsed(() => RunLinq(data).ToList());
             TimeSpan tPlinq = MeasureElapsed(() => RunPlinq(data).ToList());
@@ -79,12 +68,8 @@ class Program
         }
         
         Console.WriteLine();
-        PrintResultsTable(results); // Output summary table
+        PrintResultsTable(results);
         Console.WriteLine("\n" + new string('=', 70));
-
-        // ----------------------------------------------------
-        // |              5. SAFETY INVESTIGATION (SIDE EFFECTS)             |
-        // ----------------------------------------------------
         Console.ForegroundColor = ConsoleColor.Red;
         Console.WriteLine("\n--- PLINQ Side Effects Demonstration (Safety Investigation) ---");
         Console.WriteLine(new string('-', 70));
@@ -102,14 +87,12 @@ class Program
         FixedWithConcurrentCollection(smallData);
 
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("\n=======================================================");
-        Console.WriteLine("|| Program finished. Data analysis is in the table. ||");
-        Console.WriteLine("=======================================================");
+        Console.WriteLine(" Program finished. Data analysis is in the table. ");
         Console.ResetColor();
     }
 
     /// <summary>
-    /// Outputs measurement results in a console table format.
+    /// 
     /// </summary>
     static void PrintResultsTable(List<(int Size, double LinqTime, double PlinqTime)> results)
     {
@@ -117,7 +100,6 @@ class Program
         Console.WriteLine("--- Summary Table of Performance Results (Heavy Computation) ---");
         Console.ResetColor();
 
-        // Headers with alignment
         Console.WriteLine($"{"Size (N)",-15} | {"LINQ Time (s)",-15} | {"PLINQ Time (s)",-15} | {"Speedup (x)",-10}");
         Console.WriteLine(new string('-', 70));
 
@@ -126,15 +108,12 @@ class Program
             double speedup = res.LinqTime / res.PlinqTime;
             string arrow = speedup > 1.0 ? ">>" : "<<"; 
 
-            // Correct Formatting: value, formatted to 15 positions left-aligned
+            
             Console.WriteLine(
                 $"{res.Size:N0,-15} | {res.LinqTime:F3,-15} | {res.PlinqTime:F3,-15} | {speedup:F2}x {arrow,-7}"
             );
         }
     }
-    // ----------------------------------------------------
-    // |                  HELPER FUNCTIONS                  |
-    // ----------------------------------------------------
 
     static List<int> GenerateIntList(int count, int maxValueExclusive, int seed)
     {
@@ -195,7 +174,7 @@ class Program
         {
             if (x % 2 == 0)
             {
-                sharedCounter += 1; // Race condition!
+                sharedCounter += 1; 
             }
         });
 
