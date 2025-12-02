@@ -1,187 +1,237 @@
-﻿
-    class Program
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Diagnostics;
+using System.Threading;
+using System.Collections.Concurrent;
+using System.Text;
+
+class Program
+{
+    // Налаштування (можете змінювати для експериментів)
+    static readonly int[] SizesToTest = new[] { 1000000, 3000000, 5000000 };
+    static readonly int RandomSeed = 12345;
+    static readonly int MaxRandomValue = 10000000;
+    static readonly int WarmupRuns = 1;
+
+    static void Main(string[] args)
     {
-        //  Налаштування (можете змінювати для експериментів)
-        static readonly int[] SizesToTest = new[] { 1000000, 3000000, 5000000 }; // приклади: 1M, 3M, 5M
-        static readonly int RandomSeed = 12345;
-        static readonly int MaxRandomValue = 10000000; // межа для значення, яке перевірятимемо на простоту
-        static readonly int WarmupRuns = 1;
+        // Встановлення кодування UTF8 в коді (частина рішення)
+        Console.OutputEncoding = Encoding.UTF8;
+        
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("\n=======================================================");
+        Console.WriteLine("|| IndependentWork12: PLINQ vs LINQ Performance Analysis ||");
+        Console.WriteLine("=======================================================");
+        Console.ResetColor();
 
-        static void Main(string[] args)
+        // Збір результатів для фінальної таблиці
+        var results = new List<(int Size, double LinqTime, double PlinqTime)>();
+
+        // ----------------------------------------------------
+        // |                  4. ПОРІВНЯННЯ ПРОДУКТИВНОСТІ                    |
+        // ----------------------------------------------------
+        foreach (var n in SizesToTest)
         {
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
-            Console.WriteLine("IndependentWork12 — PLINQ vs LINQ performance and safety investigation\n");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"\n--- [Експеримент] Розмір колекції {n:N0} ---");
+            Console.ResetColor();
+            
+            var data = GenerateIntList(n, MaxRandomValue, RandomSeed);
 
-            foreach (var n in SizesToTest)
+            // Прогріти JIT та адаптацію
+            Console.WriteLine("    [Warmup (JIT) in progress...]");
+            for (int i = 0; i < WarmupRuns; i++)
             {
-                Console.WriteLine($"--- Розмір колекції: {n:N0} ---");
-                var data = GenerateIntList(n, MaxRandomValue, RandomSeed);
-
-                // Прогріти JIT та адаптацію
-                Console.WriteLine("Warmup (JIT)...");
-                for (int i = 0; i < WarmupRuns; i++)
-                {
-                    var _ = RunLinq(data).Take(10).ToList();
-                    var __ = RunPlinq(data).Take(10).ToList();
-                }
-
-                // Вимірювання
-                TimeSpan tLinq = MeasureElapsed(() => RunLinq(data).ToList());
-                TimeSpan tPlinq = MeasureElapsed(() => RunPlinq(data).ToList());
-
-                Console.WriteLine($"LINQ:  {tLinq.TotalSeconds:F3} s");
-                Console.WriteLine($"PLINQ: {tPlinq.TotalSeconds:F3} s");
-
-                // Порівняння (просте)
-                if (tPlinq < tLinq)
-                    Console.WriteLine($"Результат: PLINQ швидший на {(tLinq - tPlinq).TotalMilliseconds:F0} ms");
-                else
-                    Console.WriteLine($"Результат: LINQ швидший на {(tPlinq - tLinq).TotalMilliseconds:F0} ms");
-
-                Console.WriteLine();
+                var _ = RunLinq(data).Take(10).ToArray(); 
+                var __ = RunPlinq(data).Take(10).ToArray();
             }
 
-            // Demonstration of side-effects problem
-            Console.WriteLine("Демонстрація побічних ефектів у PLINQ ");
-            var smallData = GenerateIntList(1000000, 1000, RandomSeed + 1);
+            // Вимірювання
+            Console.WriteLine("    [Measuring performance...]");
+            TimeSpan tLinq = MeasureElapsed(() => RunLinq(data).ToList());
+            TimeSpan tPlinq = MeasureElapsed(() => RunPlinq(data).ToList());
+            
+            double linqSec = tLinq.TotalSeconds;
+            double plinqSec = tPlinq.TotalSeconds;
 
-            Console.WriteLine("1) Небезпечний приклад: інкремент спільної змінної без синхронізації");
-            UnsafePlinqSideEffect(smallData);
+            results.Add((n, linqSec, plinqSec));
 
-            Console.WriteLine("\n2) Виправлення №1: Interlocked (атома операція)");
-            FixedWithInterlocked(smallData);
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"    [LINQ Time]: {linqSec:F3} s");
+            Console.WriteLine($"    [PLINQ Time]: {plinqSec:F3} s");
+            Console.ResetColor();
 
-            Console.WriteLine("\n3) Виправлення №2: Використання потокобезпечних структур (ConcurrentBag)");
-            FixedWithConcurrentCollection(smallData);
-
-            Console.WriteLine("\n--- Кінець програми ---");
-        }
-
-        //  Генерація даних 
-        static List<int> GenerateIntList(int count, int maxValueExclusive, int seed)
-        {
-            var rnd = new Random(seed);
-            var list = new List<int>(count);
-            for (int i = 0; i < count; i++)
+            if (plinqSec < linqSec)
             {
-                // Генеруємо у діапазоні [0, maxValueExclusive)
-                list.Add(rnd.Next(maxValueExclusive));
+                double speedup = linqSec / plinqSec;
+                Console.WriteLine($"    [Результат]: PLINQ швидший у {speedup:F2} разів.");
             }
-            return list;
-        }
-
-        //  Обчислювально інтенсивна операція (прискіплива перевірка простоти + додаткові мат. операції) 
-        // Функція повертає double (щоб імітувати більш складні трансформації)
-        static double HeavyComputation(int x)
-        {
-            // Щоб зробити операцію інтенсивнішою — перевіримо на просте і виконаємо кілька Math-операцій
-            bool prime = IsPrimeDeterministic(x);
-            double v = x;
-            // Декілька нелінійних операцій
-            v = Math.Sqrt(v + 1) * (prime ? 1.00037 : 0.99963);
-            v = Math.Log(v + 1.0) + Math.Sin(v);
-            // Повертаємо дещо змінене значення
-            return v;
-        }
-
-        // Проста, але відносно повільна перевірка на простоту (до sqrt(n)), підходить для демонстрації
-        static bool IsPrimeDeterministic(int n)
-        {
-            if (n < 2) return false;
-            if (n % 2 == 0) return n == 2;
-            int r = (int)Math.Sqrt(n);
-            for (int i = 3; i <= r; i += 2)
-                if (n % i == 0) return false;
-            return true;
-        }
-
-        // LINQ pipeline
-        static IEnumerable<double> RunLinq(IEnumerable<int> source)
-        {
-            // Префікс: фільтр (наприклад, значення > 1), потім Select -> HeavyComputation
-            return source.Where(x => x > 1).Select(x => HeavyComputation(x));
-        }
-
-        //  PLINQ pipeline 
-        static IEnumerable<double> RunPlinq(IEnumerable<int> source)
-        {
-            // AsParallel() дає PLINQ; AsOrdered() можна додати якщо потрібний порядок
-            return source.AsParallel().Where(x => x > 1).Select(x => HeavyComputation(x));
-        }
-
-        // Вимірювання часу виконання (проста обгортка) 
-        static TimeSpan MeasureElapsed(Action action)
-        {
-            // GC перед вимірюванням, щоб зменшити шум
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            var sw = Stopwatch.StartNew();
-            action();
-            sw.Stop();
-            return sw.Elapsed;
-        }
-
-        // Побічні ефекти: небезпечний приклад 
-        static void UnsafePlinqSideEffect(IEnumerable<int> source)
-        {
-            long sharedCounter = 0;
-
-            // Виконати PLINQ, в тілі лямбди інкрементуємо sharedCounter без синхронізації
-            source.AsParallel().ForAll(x =>
+            else
             {
-                // Умова, щоб не просто інкрементувати, а робити "роботу"
-                if (x % 2 == 0)
-                {
-                    // Некоректна операція над sharedCounter
-                    sharedCounter += 1; // race condition!
-                }
-            });
-
-            // Очікуване значення — кількість парних елементів
-            // Але через відсутність синхронізації результат може бути менший
-            long expected = source.Count(x => x % 2 == 0);
-            Console.WriteLine($"Очікуване (count парних): {expected}");
-            Console.WriteLine($"Отримано (без синхронізації): {sharedCounter}");
-            Console.WriteLine("Коментар: отримане значення швидше за все НЕ збігатиметься з очікуваним через race condition.");
+                 Console.WriteLine($"    [Результат]: LINQ виявився швидшим.");
+            }
         }
+        
+        Console.WriteLine();
+        PrintResultsTable(results); // Виведення зведеної таблиці
+        Console.WriteLine("\n" + new string('=', 70));
 
-        //  Виправлення 1: Interlocked 
-        static void FixedWithInterlocked(IEnumerable<int> source)
+        // ----------------------------------------------------
+        // |                5. ДОСЛІДЖЕННЯ БЕЗПЕКИ (ПОБІЧНІ ЕФЕКТИ)           |
+        // ----------------------------------------------------
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine("\n--- Демонстрація побічних ефектів у PLINQ (Safety Investigation) ---");
+        Console.WriteLine(new string('-', 70));
+        Console.ResetColor();
+        
+        var smallData = GenerateIntList(1000000, 1000, RandomSeed + 1);
+
+        Console.WriteLine("\n[1] Небезпечний приклад (Race Condition)");
+        UnsafePlinqSideEffect(smallData);
+
+        Console.WriteLine("\n[2] Виправлення №1: Interlocked (Атомарна операція)");
+        FixedWithInterlocked(smallData);
+
+        Console.WriteLine("\n[3] Виправлення №2: Concurrent Collection");
+        FixedWithConcurrentCollection(smallData);
+
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("\n=======================================================");
+        Console.WriteLine("|| Програму завершено. Аналіз даних у таблиці. ||");
+        Console.WriteLine("=======================================================");
+        Console.ResetColor();
+    }
+
+    /// <summary>
+    /// Виводить результати вимірювань у форматі консольної таблиці.
+    /// </summary>
+    static void PrintResultsTable(List<(int Size, double LinqTime, double PlinqTime)> results)
+    {
+        Console.ForegroundColor = ConsoleColor.Blue;
+        Console.WriteLine("--- Зведена таблиця результатів продуктивності (Heavy Computation) ---");
+        Console.ResetColor();
+
+        // Заголовки з вирівнюванням
+        Console.WriteLine($"{"Size (N)",-15} | {"LINQ Time (s)",-15} | {"PLINQ Time (s)",-15} | {"Speedup (x)",-10}");
+        Console.WriteLine(new string('-', 70));
+
+        foreach (var res in results)
         {
-            long safeCounter = 0;
+            double speedup = res.LinqTime / res.PlinqTime;
+            string arrow = speedup > 1.0 ? ">>" : "<<"; 
 
-            source.AsParallel().ForAll(x =>
-            {
-                if (x % 2 == 0)
-                {
-                    Interlocked.Increment(ref safeCounter);
-                }
-            });
-
-            long expected = source.Count(x => x % 2 == 0);
-            Console.WriteLine($"Очікуване: {expected}");
-            Console.WriteLine($"Отримано (Interlocked): {safeCounter}");
-        }
-
-        //  Виправлення 2: збирати результати локально, потім агрегація (або ConcurrentCollection) 
-        static void FixedWithConcurrentCollection(IEnumerable<int> source)
-        {
-            var bag = new ConcurrentBag<int>();
-
-            source.AsParallel().ForAll(x =>
-            {
-                if (x % 2 == 0)
-                {
-                    // додаємо 1 для кожного парного
-                    bag.Add(1);
-                }
-            });
-
-            int result = bag.Count; 
-            int expected = source.Count(x => x % 2 == 0);
-            Console.WriteLine($"Очікуване: {expected}");
-            Console.WriteLine($"Отримано (ConcurrentBag): {result}");
+            // КОРЕКТНЕ ФОРМАТУВАННЯ: Значення, вирівняне на 15 позицій
+            Console.WriteLine(
+                $"{res.Size:N0,-15} | {res.LinqTime:F3,-15} | {res.PlinqTime:F3,-15} | {speedup:F2}x {arrow,-7}"
+            );
         }
     }
+
+
+    // ----------------------------------------------------
+    // |                  ДОПОМІЖНІ ФУНКЦІЇ                 |
+    // ----------------------------------------------------
+
+    static List<int> GenerateIntList(int count, int maxValueExclusive, int seed)
+    {
+        var rnd = new Random(seed);
+        var list = new List<int>(count);
+        for (int i = 0; i < count; i++)
+        {
+            list.Add(rnd.Next(maxValueExclusive));
+        }
+        return list;
+    }
+
+    static double HeavyComputation(int x)
+    {
+        bool prime = IsPrimeDeterministic(x);
+        double v = x;
+        v = Math.Sqrt(v + 1) * (prime ? 1.00037 : 0.99963);
+        v = Math.Log(v + 1.0) + Math.Sin(v);
+        return v;
+    }
+
+    static bool IsPrimeDeterministic(int n)
+    {
+        if (n < 2) return false;
+        if (n % 2 == 0) return n == 2;
+        int r = (int)Math.Sqrt(n);
+        for (int i = 3; i <= r; i += 2)
+            if (n % i == 0) return false;
+        return true;
+    }
+
+    static IEnumerable<double> RunLinq(IEnumerable<int> source)
+    {
+        return source.Where(x => x > 1).Select(x => HeavyComputation(x));
+    }
+
+    static IEnumerable<double> RunPlinq(IEnumerable<int> source)
+    {
+        return source.AsParallel().Where(x => x > 1).Select(x => HeavyComputation(x));
+    }
+
+    static TimeSpan MeasureElapsed(Action action)
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        var sw = Stopwatch.StartNew();
+        action();
+        sw.Stop();
+        return sw.Elapsed;
+    }
+
+    static void UnsafePlinqSideEffect(IEnumerable<int> source)
+    {
+        long sharedCounter = 0;
+        source.AsParallel().ForAll(x =>
+        {
+            if (x % 2 == 0)
+            {
+                sharedCounter += 1; // Race condition!
+            }
+        });
+
+        long expected = source.Count(x => x % 2 == 0);
+        Console.WriteLine($"    Очікуване (count парних): {expected}");
+        Console.WriteLine($"    Отримано (без синхронізації): {sharedCounter} [НЕКОРЕКТНО]");
+        Console.WriteLine("    *Коментар: Отримане значення є некоректним через Race Condition.*");
+    }
+
+    static void FixedWithInterlocked(IEnumerable<int> source)
+    {
+        long safeCounter = 0;
+        source.AsParallel().ForAll(x =>
+        {
+            if (x % 2 == 0)
+            {
+                Interlocked.Increment(ref safeCounter);
+            }
+        });
+
+        long expected = source.Count(x => x % 2 == 0);
+        Console.WriteLine($"    Очікуване: {expected}");
+        Console.WriteLine($"    Отримано (Interlocked): {safeCounter} [КОРЕКТНО]");
+    }
+
+    static void FixedWithConcurrentCollection(IEnumerable<int> source)
+    {
+        var bag = new ConcurrentBag<int>();
+        source.AsParallel().ForAll(x =>
+        {
+            if (x % 2 == 0)
+            {
+                bag.Add(1);
+            }
+        });
+
+        int result = bag.Count;
+        int expected = source.Count(x => x % 2 == 0);
+        Console.WriteLine($"    Очікуване: {expected}");
+        Console.WriteLine($"    Отримано (ConcurrentBag): {result} [КОРЕКТНО]");
+    }
+}
