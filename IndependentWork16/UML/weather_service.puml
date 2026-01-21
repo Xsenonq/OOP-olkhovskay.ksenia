@@ -1,0 +1,22 @@
+@startuml
+interface IWeatherApiClient
+interface IWeatherParser
+interface IWeatherRepository
+interface IWeatherDisplay
+
+class MockWeatherApiClient
+class SimpleWeatherParser
+class InMemoryWeatherRepository
+class ConsoleWeatherDisplay
+class WeatherService
+
+IWeatherApiClient <|.. MockWeatherApiClient
+IWeatherParser <|.. SimpleWeatherParser
+IWeatherRepository <|.. InMemoryWeatherRepository
+IWeatherDisplay <|.. ConsoleWeatherDisplay
+
+WeatherService --> IWeatherApiClient
+WeatherService --> IWeatherParser
+WeatherService --> IWeatherRepository
+WeatherService --> IWeatherDisplay
+@enduml
