@@ -20,4 +20,4 @@
 - LoadFromFileAsync(string filename) — асинхронне завантаження з JSON  
 ##  Скріншоти
 ### Робота програми
-![Console Output](images/console.png)
+![alt text](images/console.png)
