@@ -19,6 +19,5 @@
 - SaveToFileAsync(string filename) — асинхронне збереження у JSON  
 - LoadFromFileAsync(string filename) — асинхронне завантаження з JSON  
 ##  Скріншоти
-
 ### Робота програми
 ![Console Output](images/console.png)
