@@ -18,6 +18,3 @@
 - GetById(int id) — пошук за ID  
 - SaveToFileAsync(string filename) — асинхронне збереження у JSON  
 - LoadFromFileAsync(string filename) — асинхронне завантаження з JSON  
-##  Скріншоти
-### Робота програми
-![alt text](images/console.png)
