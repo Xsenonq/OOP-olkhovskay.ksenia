@@ -1,23 +1,50 @@
-﻿class Program
+﻿using lab21nv12.Factory;
+using lab21nv12.Services;
+using lab21nv12.Strategies;
+
+namespace lab21nv12
 {
-    static void Main()
+    internal class Program
     {
-        IOrderValidator validator = new OrderValidator();
-        IOrderRepository repository = new InMemoryOrderRepository();
-        IEmailService emailService = new ConsoleEmailService();
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Тип доставки (Standard / Express / International / Night):");
+            string? type = Console.ReadLine();
 
-        OrderService orderService = new OrderService(
-            validator,
-            repository,
-            emailService
-        );
+            if (string.IsNullOrWhiteSpace(type))
+            {
+                Console.WriteLine("Тип доставки не може бути порожнім.");
+                return;
+            }
 
-        // Валідне замовлення
-        Order validOrder = new Order(1, "Ivan", 1000);
-        orderService.ProcessOrder(validOrder);
+            Console.WriteLine("Введіть відстань (км):");
+            if (!decimal.TryParse(Console.ReadLine(), out decimal distance))
+            {
+                Console.WriteLine("Некоректна відстань.");
+                return;
+            }
 
-        // Невалідне замовлення
-        Order invalidOrder = new Order(2, "Olena", -50);
-        orderService.ProcessOrder(invalidOrder);
+            Console.WriteLine("Введіть вагу (кг):");
+            if (!decimal.TryParse(Console.ReadLine(), out decimal weight))
+            {
+                Console.WriteLine("Некоректна вага.");
+                return;
+            }
+
+            try
+            {
+                IShippingStrategy strategy =
+                    ShippingStrategyFactory.CreateStrategy(type);
+
+                DeliveryService service = new DeliveryService();
+                decimal cost = service.CalculateDeliveryCost(distance, weight, strategy);
+
+                Console.WriteLine($"Вартість доставки: {cost} грн");
+            }
+            catch (ArgumentException ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
     }
 }
