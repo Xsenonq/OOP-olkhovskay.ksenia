@@ -1,0 +1,63 @@
+@startuml
+
+title Car Rental System - Class Diagram
+
+package "Domain" {
+
+class Car {
+  +Id: Guid
+  +Model: string
+  +IsAvailable: bool
+  +Rent()
+  +Return()
+}
+
+class Customer {
+  +Id: Guid
+  +Name: string
+}
+
+class Rental {
+  +Id: Guid
+  +StartDate: DateTime
+}
+
+interface ICarRepository {
+  +Add(Car)
+  +GetById(Guid): Car
+  +GetAll(): List<Car>
+}
+
+}
+
+package "Application" {
+
+class RentalService {
+  +RentCar(customerName: string, carId: Guid)
+}
+
+}
+
+package "Infrastructure" {
+
+class InMemoryCarRepository {
+}
+
+ICarRepository <|.. InMemoryCarRepository
+}
+
+package "UI (Console)" {
+class Program
+}
+
+' --- Relationships ---
+Car "1" <-- "0..*" Rental
+Customer "1" <-- "0..*" Rental
+
+RentalService --> ICarRepository
+RentalService --> Car
+RentalService --> Customer
+
+Program --> RentalService
+
+@enduml
