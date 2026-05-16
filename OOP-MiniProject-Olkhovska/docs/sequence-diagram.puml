@@ -1,0 +1,26 @@
+@startuml
+
+title Car Rental System - Rent Car Scenario
+
+actor User
+
+participant "Console (Program)" as UI
+participant "RentalService" as Service
+participant "ICarRepository" as Repo
+participant "Car (Domain)" as Car
+participant "Customer (Domain)" as Customer
+
+User -> UI : Enter name + select carId
+UI -> Service : RentCar(name, carId)
+
+Service -> Repo : GetById(carId)
+Repo --> Service : Car
+
+Service -> Car : Rent()
+
+Service -> Customer : new Customer(name)
+
+Service --> UI : Success message
+UI --> User : "Car rented successfully"
+
+@enduml

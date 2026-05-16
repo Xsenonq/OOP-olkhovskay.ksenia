@@ -1,0 +1,38 @@
+[
+  {
+    "Id": 1,
+    "Dish": {
+      "Id": 1,
+      "Name": "Pizza",
+      "Price": 150
+    },
+    "Category": {
+      "Id": 1,
+      "Name": "Main"
+    }
+  },
+  {
+    "Id": 2,
+    "Dish": {
+      "Id": 2,
+      "Name": "Burger",
+      "Price": 120
+    },
+    "Category": {
+      "Id": 2,
+      "Name": "FastFood"
+    }
+  },
+  {
+    "Id": 3,
+    "Dish": {
+      "Id": 3,
+      "Name": "Salad",
+      "Price": 90
+    },
+    "Category": {
+      "Id": 3,
+      "Name": "Healthy"
+    }
+  }
+]

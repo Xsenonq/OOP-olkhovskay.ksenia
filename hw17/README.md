@@ -1,4 +1,4 @@
-# Factory Method vs Abstract Factory
+# Factory Method vs Abstract Factoryc
 ## Factory Method
 
 ### Сутність
